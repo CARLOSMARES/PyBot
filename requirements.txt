@@ -2,3 +2,6 @@ pymongo
 spacy
 # Comando para instalar el modelo de spaCy
 https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.0.0/en_core_web_sm-3.0.0.tar.gz
+Flask
+flask-cors
+urllib3==1.26.15
