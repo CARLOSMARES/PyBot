@@ -6,6 +6,7 @@ import spacy
 from flask_cors import CORS
 from functools import wraps
 import bcrypt
+import base64  # nueva importación
 
 app = Flask(__name__)
 CORS(app)
@@ -85,8 +86,17 @@ def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         auth = request.headers.get('Authorization')
-        if not auth or auth != "Bearer secrettoken":
+        if not auth or not auth.startswith("Bearer "):
             return jsonify({"error": "Unauthorized"}), 401
+        token = auth.split(" ")[1]
+        try:
+            decoded = base64.b64decode(token.encode('utf8')).decode('utf8')
+            username, password = decoded.split(":", 1)
+        except Exception as e:
+            return jsonify({"error": "Invalid token"}), 401
+        user = usuarios.find_one({"username": username})
+        if not user or not bcrypt.checkpw(password.encode('utf8'), user["password"].encode('utf8')):
+            return jsonify({"error": "Invalid token credentials"}), 401
         return f(*args, **kwargs)
     return decorated
 
@@ -100,7 +110,8 @@ def login():
     user = usuarios.find_one({"username": username})
     if not user or not bcrypt.checkpw(password.encode('utf8'), user["password"].encode('utf8')):
         return jsonify({"error": "Invalid credentials"}), 401
-    return jsonify({"token": "secrettoken"})
+    token = base64.b64encode(f"{username}:{password}".encode('utf8')).decode('utf8')  # generación del token
+    return jsonify({"token": token})
 
 @app.route('/register', methods=['POST'])
 @token_required
@@ -137,6 +148,19 @@ def nueva_respuesta():
 
     guardar_respuesta(prompt, respuesta)
     return jsonify({"message": "Respuesta guardada correctamente"}), 201
+
+@app.route('/historial', methods=['GET'])
+@token_required  # nuevo decorador para proteger el endpoint
+def obtener_historial():
+    # Obtener historial de chat ordenado por fecha descendente
+    entries = historial.find().sort("fecha", -1)
+    result = []
+    for entry in entries:
+        # Convertir los datos para hacerlos JSON serializables
+        entry['_id'] = str(entry['_id'])
+        entry['fecha'] = entry['fecha'].strftime("%Y-%m-%d %H:%M:%S")
+        result.append(entry)
+    return jsonify(result)
 
 if __name__ == "__main__":
     if not usuarios.find_one({"username": "admin"}):
