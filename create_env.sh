@@ -21,6 +21,8 @@ source .venv/bin/activate
 pip install --upgrade pip wheel setuptools
 # Instalar dependencias
 pip install -r requirements.txt
+# Reinstalar numpy con una versión compatible para corregir incompatibilidades binarias
+pip install --force-reinstall --upgrade numpy==1.24.3
 # Verificar si el modelo de spaCy "en_core_web_sm" está instalado; si no, instalarlo.
 if ! python -c "import en_core_web_sm" &> /dev/null; then
     echo "El modelo en_core_web_sm no está instalado, instalándolo..."
