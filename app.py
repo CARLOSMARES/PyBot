@@ -1,3 +1,57 @@
+#####
+# Creación de un chatbot con Flask y MongoDB
+# Autor: Carlos Ignacio Olano Mares
+# Fecha: 04 de Marzo de 2025
+# Fecha Ultima Actualización: 15 de Marzo de 2025
+# Descripción: Código fuente de un chatbot que utiliza Flask y MongoDB para almacenar respuestas y preguntas.
+#              El chatbot puede responder preguntas previamente registradas y aprender nuevas respuestas.
+#              Se incluye un sistema de autenticación con tokens para proteger ciertos endpoints.
+#              El chatbot también guarda un historial de las conversaciones.
+#              Para ejecutar el chatbot, se debe instalar Flask, pymongo, spacy y bcrypt.
+#              Para instalar las dependencias, ejecutar el siguiente comando:
+#              pip install -r requirements.txt
+#              Para ejecutar el chatbot, ejecutar el siguiente comando:
+#              python app.py
+#              El chatbot estará disponible en http://
+#              Para interactuar con el chatbot, se pueden utilizar las siguientes rutas:
+#              - /chat: Para enviar una pregunta al chatbot.
+#              - /respuesta: Para registrar una nueva pregunta y respuesta en el chatbot.
+#              - /historial: Para obtener el historial de conversaciones del chatbot.
+#              - /login: Para autenticarse y obtener un token de acceso.
+#              - /register: Para registrar un nuevo usuario en el chatbot.
+#              El chatbot incluye un usuario administrador con las credenciales admin:admin123.
+#              Para autenticarse como administrador, se puede utilizar el siguiente comando:
+#              curl -X POST http://localhost:5000/login -H "Content-Type: application/json" -d '{"username": "admin", "password": "admin123"}'
+#              El token de acceso se puede utilizar para acceder a los endpoints protegidos.
+#              Para registrar un nuevo usuario, se puede utilizar el siguiente comando:
+#              curl -X POST http://localhost:5000/register -H "Content-Type: application/json" -d '{"username": "usuario", "password": "contraseña"}'
+#              El chatbot se puede utilizar para responder preguntas o aprender nuevas respuestas.
+#              Para enviar una pregunta al chatbot, se puede utilizar el siguiente comando:
+#              curl -X POST http://localhost:5000/chat -H "Content-Type: application/json" -d '{"prompt": "pregunta"}'
+#              Para registrar una nueva pregunta y respuesta en el chatbot, se puede utilizar el siguiente comando:
+#              curl -X POST http://localhost:5000/respuesta -H "Content-Type: application
+#              Para obtener el historial de conversaciones del chatbot, se puede utilizar el siguiente comando:
+#              curl -X GET http://localhost:5000/historial
+#              El chatbot responde a preguntas previamente registradas y aprende nuevas respuestas.
+#              Si no se encuentra una respuesta exacta, el chatbot sugiere preguntas similares.
+#              El chatbot también responde a saludos, despedidas, agradecimientos y solicitudes de ayuda.
+#              El chatbot utiliza un modelo de lenguaje de spaCy para analizar las intenciones del usuario.
+#              El chatbot utiliza una base de datos MongoDB para almacenar las preguntas y respuestas.
+#              El chatbot utiliza bcrypt para almacenar contraseñas de forma segura.
+#              El chatbot utiliza tokens de acceso para proteger ciertos endpoints.
+#              El chatbot utiliza CORS para permitir solicitudes desde cualquier origen.
+#              El chatbot utiliza decoradores de Python para proteger los endpoints.
+#              El chatbot utiliza funciones de Python para manejar las solicitudes HTTP.
+#              El chatbot utiliza funciones de Python para interactuar con la base de datos MongoDB.
+#              El chatbot utiliza funciones
+#              de Python para analizar las intenciones del usuario y generar respuestas.
+#              El chatbot utiliza funciones de Python para manejar la autenticación y el registro de usuarios.
+#              El chatbot utiliza funciones de Python para manejar el historial de conversaciones.
+#              El chatbot utiliza funciones de Python para manejar las sugerencias de preguntas similares.
+#              El chatbot utiliza funciones de Python para manejar las respuestas a saludos, despedidas, agradecimientos y solicitudes de ayuda.
+#              El chatbot utiliza funciones de Python para manejar las respuestas a preguntas previamente registradas y aprende nuevas respuestas.
+#####
+
 from flask import Flask, request, jsonify
 from pymongo import MongoClient
 from difflib import get_close_matches
