@@ -61,6 +61,8 @@ from flask_cors import CORS
 from functools import wraps
 import bcrypt
 import base64  # nueva importación
+from openai import OpenAI
+client = OpenAI()
 
 app = Flask(__name__)
 CORS(app)
@@ -72,6 +74,18 @@ db = cliente["chatbot"]
 coleccion = db["respuestas"]
 historial = db["historial"]
 usuarios = db["usuarios"]
+
+def obtener_respuesta_openai(prompt: str) -> str:
+    completion = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+    )
+    return completion.choices[0].message.content
 
 def analizar_intencion(prompt: str) -> str:
     doc = nlp(prompt.lower())
@@ -215,6 +229,17 @@ def obtener_historial():
         entry['fecha'] = entry['fecha'].strftime("%Y-%m-%d %H:%M:%S")
         result.append(entry)
     return jsonify(result)
+
+@app.route('/chatopenai', methods=['POST'])
+@token_required  # nuevo decorador para proteger el endpoint
+def openai():
+    data = request.json
+    prompt = data.get('prompt')
+    if not prompt:
+        return jsonify({"error": "No prompt provided"}), 400
+
+    respuesta = obtener_respuesta_openai(prompt)
+    return jsonify({"respuesta": respuesta})
 
 if __name__ == "__main__":
     if not usuarios.find_one({"username": "admin"}):
