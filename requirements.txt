@@ -7,3 +7,4 @@ flask-cors
 urllib3==1.26.15
 bcrypt
 openai
+pymupdf

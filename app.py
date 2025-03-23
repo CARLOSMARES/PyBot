@@ -62,6 +62,7 @@ from functools import wraps
 import bcrypt
 import base64  # nueva importación
 from openai import OpenAI
+import fitz
 client = OpenAI()
 
 app = Flask(__name__)
@@ -74,6 +75,27 @@ db = cliente["chatbot"]
 coleccion = db["respuestas"]
 historial = db["historial"]
 usuarios = db["usuarios"]
+qna_collection = db["preguntas_generadas"]
+
+def extract_text_from_pdf(pdf_path: str):
+    doc = fitz.open(pdf_path)
+    text = "\n".join(page.get_text("text") for page in doc)
+    return text
+
+def generate_qna(text, api_key):
+    openai.api_key = api_key
+    prompt =f"""
+    Apartir del siguiente texto, genera preguntas y respuestas útiles:
+    """
+
+    response = openai.ChatCompletion.create(
+        model="gpt-4",
+        messages=[{"role": "system", "content": "Eres un asistente experto en generación de preguntas."},
+                  {"role": "user", "content": prompt + text[:2000]}],
+        max_tokens=500
+    )
+
+    return response.choices[0].message.content
 
 def obtener_respuesta_openai(prompt: str) -> str:
     completion = client.chat.completions.create(
@@ -240,6 +262,32 @@ def openai():
 
     respuesta = obtener_respuesta_openai(prompt)
     return jsonify({"respuesta": respuesta})
+
+@app.route("/generate-qna", methods=["POST"])
+@token_required
+def generate_qna_api():
+    """API para recibir un archivo PDF y generar preguntas y respuestas."""
+    if "file" not in request.files:
+        return jsonify({"error": "No se ha proporcionado un archivo."}), 400
+    
+    file = request.files["file"]
+    pdf_path = f"./uploads/{file.filename}"
+    file.save(pdf_path)
+    
+    text = extract_text_from_pdf(pdf_path)
+    api_key = "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"  # Sustituir con la clave real
+    qna = generate_qna(text, api_key)
+    
+    qna_collection.insert_one({"archivo": file.filename, "contenido": qna, "fecha": datetime.datetime.now()})
+    
+    return jsonify({"preguntas_y_respuestas": qna})
+
+@app.route("/qna", methods=["GET"])
+@token_required
+def get_qna():
+    """API para obtener todas las preguntas generadas."""
+    preguntas = list(qna_collection.find({}, {"_id": 0}))
+    return jsonify({"preguntas_generadas": preguntas})
 
 if __name__ == "__main__":
     if not usuarios.find_one({"username": "admin"}):
