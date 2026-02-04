@@ -19,9 +19,17 @@ services:
     environment:
       - FLASK_APP=app.py
       - PYTHONUNBUFFERED=1
-      # Se recomienda usar el nombre del servicio 'mongodb' en lugar de 'localhost' en app.py
       - MONGO_URI=mongodb://mongodb:27017/
-      - OPENAI_API_KEY=tu_clave_aqui
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # Meta (Facebook/Instagram)
+      - META_ACCESS_TOKEN=tu_token_de_pagina
+      - META_VERIFY_TOKEN=tu_palabra_secreta
+      # X (Twitter)
+      - X_CONSUMER_KEY=tu_key
+      - X_CONSUMER_SECRET=tu_secret
+      - X_ACCESS_TOKEN=tu_token
+      - X_ACCESS_TOKEN_SECRET=tu_token_secret
+      - TWITTER_BOT_ID=id_numérico_de_tu_bot
     depends_on:
       - mongodb
     volumes:

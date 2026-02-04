@@ -10,6 +10,8 @@ import base64
 import os  # Importación necesaria para variables de entorno
 from openai import OpenAI
 import fitz
+import requests
+from request_oauthlib import OAuth1
 
 # Configuración mediante variables de entorno
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "sk-default-key")
@@ -229,3 +231,133 @@ if __name__ == "__main__":
         usuarios.insert_one({"username": "admin", "password": hashed_admin.decode('utf8')})
     # Host 0.0.0.0 es necesario para que Flask sea accesible desde fuera del contenedor Docker
     app.run(host="0.0.0.0", port=5000, debug=True)
+
+    # --- ENDPOINT PARA TELEGRAM ---
+@app.route('/webhook/telegram', methods=['POST'])
+def telegram_webhook():
+    data = request.json
+    if "message" in data:
+        chat_id = data["message"]["chat"]["id"]
+        text = data["message"].get("text", "")
+
+        # Usamos tu lógica existente para obtener respuesta de Mongo o OpenAI
+        respuesta = generar_respuesta(text)
+
+        # Enviar respuesta de vuelta a Telegram
+        token_telegram = os.getenv("TELEGRAM_TOKEN")
+        url = f"https://api.telegram.org/bot{token_telegram}/sendMessage"
+        payload = {"chat_id": chat_id, "text": respuesta}
+        requests.post(url, json=payload)
+        
+    return jsonify({"status": "ok"}), 200
+
+# --- ENDPOINT PARA WHATSAPP (Meta Cloud API) ---
+@app.route('/webhook/whatsapp', methods=['GET', 'POST'])
+def whatsapp_webhook():
+    # Verificación del Webhook (Solo se usa una vez al configurar en Meta)
+    if request.method == 'GET':
+        mode = request.args.get('hub.mode')
+        token = request.args.get('hub.verify_token')
+        challenge = request.args.get('hub.challenge')
+        if mode == 'subscribe' and token == os.getenv("WHATSAPP_VERIFY_TOKEN"):
+            return challenge, 200
+        return "Error de verificación", 403
+
+    # Recepción de mensajes
+    data = request.json
+    try:
+        if "messages" in data["entry"][0]["changes"][0]["value"]:
+            mensaje_recibido = data["entry"][0]["changes"][0]["value"]["messages"][0]
+            wa_id = mensaje_recibido["from"]
+            texto_usuario = mensaje_recibido["text"]["body"]
+
+            # Generar respuesta usando tu lógica de MongoDB
+            respuesta = generar_respuesta(texto_usuario)
+
+            # Enviar a WhatsApp
+            id_telefono = data["entry"][0]["changes"][0]["value"]["metadata"]["phone_number_id"]
+            token_wa = os.getenv("WHATSAPP_TOKEN")
+            url = f"https://graph.facebook.com/v17.0/{id_telefono}/messages"
+            headers = {"Authorization": f"Bearer {token_wa}"}
+            payload = {
+                "messaging_product": "whatsapp",
+                "to": wa_id,
+                "type": "text",
+                "text": {"body": respuesta}
+            }
+            requests.post(url, json=payload, headers=headers)
+    except Exception as e:
+        print(f"Error en WhatsApp Webhook: {e}")
+
+    return jsonify({"status": "ok"}), 200
+
+# --- ENDPOINT UNIFICADO PARA FACEBOOK E INSTAGRAM ---
+@app.route('/webhook/meta', methods=['GET', 'POST'])
+def meta_webhook():
+    # Validación del Webhook por Meta
+    if request.method == 'GET':
+        mode = request.args.get('hub.mode')
+        token = request.args.get('hub.verify_token')
+        challenge = request.args.get('hub.challenge')
+        if mode == 'subscribe' and token == os.getenv("META_VERIFY_TOKEN"):
+            return challenge, 200
+        return "Error de autenticación", 403
+
+    # Procesamiento de Mensajes
+    data = request.json
+    try:
+        for entry in data.get('entry', []):
+            for messaging_event in entry.get('messaging', []):
+                if messaging_event.get('message'):
+                    sender_id = messaging_event['sender']['id']
+                    user_text = messaging_event['message'].get('text')
+                    
+                    if user_text:
+                        # Usar tu lógica de MongoDB y OpenAI
+                        respuesta = generar_respuesta(user_text)
+                        
+                        token_meta = os.getenv("META_ACCESS_TOKEN")
+                        url = f"https://graph.facebook.com/v17.0/me/messages?access_token={token_meta}"
+                        payload = {
+                            "recipient": {"id": sender_id},
+                            "message": {"text": respuesta}
+                        }
+                        requests.post(url, json=payload)
+    except Exception as e:
+        print(f"Error en Meta Webhook: {e}")
+    return "EVENT_RECEIVED", 200
+
+# --- ENDPOINT PARA X (TWITTER) ---
+@app.route('/webhook/twitter', methods=['POST'])
+def twitter_webhook():
+    data = request.json
+    
+    # X utiliza el evento 'direct_message_events' para DMs
+    if "direct_message_events" in data:
+        for event in data["direct_message_events"]:
+            if event["type"] == "message_create":
+                sender_id = event["message_create"]["sender_id"]
+                
+                # Seguridad: No responder a los propios mensajes del bot
+                if sender_id == os.getenv("X_BOT_ID"):
+                    continue
+                
+                user_text = event["message_create"]["message_data"]["text"]
+                respuesta = generar_respuesta(user_text)
+
+                # Autenticación requerida por la API de X
+                auth = OAuth1(
+                    os.getenv("X_CONSUMER_KEY"),
+                    os.getenv("X_CONSUMER_SECRET"),
+                    os.getenv("X_ACCESS_TOKEN"),
+                    os.getenv("X_ACCESS_TOKEN_SECRET")
+                )
+                
+                url = "https://api.twitter.com/2/direct_messages"
+                payload = {
+                    "recipient_id": sender_id,
+                    "text": respuesta
+                }
+                requests.post(url, auth=auth, json=payload)
+                
+    return jsonify({"status": "success"}), 200
