@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  # Servicio para la base de datos MongoDB
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb_chatbot
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+  # Servicio para la aplicación Flask (PyBot)
+  app:
+    build: .
+    container_name: pybot_app
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_APP=app.py
+      - PYTHONUNBUFFERED=1
+      # Se recomienda usar el nombre del servicio 'mongodb' en lugar de 'localhost' en app.py
+      - MONGO_URI=mongodb://mongodb:27017/
+      - OPENAI_API_KEY=tu_clave_aqui
+    depends_on:
+      - mongodb
+    volumes:
+      - .:/app
+      - ./uploads:/app/uploads
+
+volumes:
+  mongodb_data:
