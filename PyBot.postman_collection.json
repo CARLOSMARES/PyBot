@@ -1,0 +1,145 @@
+{
+	"info": {
+		"name": "PyBot Omnichannel API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"admin\",\n    \"password\": \"admin123\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{base_url}}/login", "host": ["{{base_url}}"], "path": ["login"] }
+					}
+				},
+				{
+					"name": "Register User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"nuevo_usuario\",\n    \"password\": \"password123\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{base_url}}/register", "host": ["{{base_url}}"], "path": ["register"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "Core Chat",
+			"item": [
+				{
+					"name": "Chat Local/Mongo",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"prompt\": \"hola\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{base_url}}/chat", "host": ["{{base_url}}"], "path": ["chat"] }
+					}
+				},
+				{
+					"name": "Chat OpenAI (GPT-4o)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"prompt\": \"¿Cuál es la capital de Francia?\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{base_url}}/chatopenai", "host": ["{{base_url}}"], "path": ["chatopenai"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "Knowledge Base",
+			"item": [
+				{
+					"name": "Add New Response",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"prompt\": \"¿Cuál es el horario de atención?\",\n    \"respuesta\": \"Atendemos de lunes a viernes de 9am a 6pm.\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{base_url}}/respuesta", "host": ["{{base_url}}"], "path": ["respuesta"] }
+					}
+				},
+				{
+					"name": "Upload PDF & Generate QnA",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{ "key": "file", "type": "file", "src": [] }
+							]
+						},
+						"url": { "raw": "{{base_url}}/generate-qna", "host": ["{{base_url}}"], "path": ["generate-qna"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "Webhooks (Simulación)",
+			"item": [
+				{
+					"name": "Telegram Webhook",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"message\": {\n        \"chat\": { \"id\": 12345 },\n        \"text\": \"hola\"\n    }\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{base_url}}/webhook/telegram", "host": ["{{base_url}}"], "path": ["webhook", "telegram"] }
+					}
+				},
+				{
+					"name": "Meta Webhook (Verification)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/webhook/meta?hub.mode=subscribe&hub.verify_token=TU_TOKEN&hub.challenge=1234",
+							"host": ["{{base_url}}"],
+							"path": ["webhook", "meta"],
+							"query": [
+								{ "key": "hub.mode", "value": "subscribe" },
+								{ "key": "hub.verify_token", "value": "TU_TOKEN" },
+								{ "key": "hub.challenge", "value": "1234" }
+							]
+						}
+					}
+				}
+			]
+		}
+	]
+}

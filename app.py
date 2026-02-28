@@ -11,7 +11,7 @@ import os  # Importación necesaria para variables de entorno
 from openai import OpenAI
 import fitz
 import requests
-from request_oauthlib import OAuth1
+from requests_oauthlib import OAuth1
 
 # Configuración mediante variables de entorno
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "sk-default-key")
@@ -225,14 +225,7 @@ def get_qna():
     preguntas = list(qna_collection.find({}, {"_id": 0}))
     return jsonify({"preguntas_generadas": preguntas})
 
-if __name__ == "__main__":
-    if not usuarios.find_one({"username": "admin"}):
-        hashed_admin = bcrypt.hashpw("admin123".encode('utf8'), bcrypt.gensalt())
-        usuarios.insert_one({"username": "admin", "password": hashed_admin.decode('utf8')})
-    # Host 0.0.0.0 es necesario para que Flask sea accesible desde fuera del contenedor Docker
-    app.run(host="0.0.0.0", port=5000, debug=True)
-
-    # --- ENDPOINT PARA TELEGRAM ---
+# --- ENDPOINT PARA TELEGRAM ---
 @app.route('/webhook/telegram', methods=['POST'])
 def telegram_webhook():
     data = request.json
@@ -361,3 +354,10 @@ def twitter_webhook():
                 requests.post(url, auth=auth, json=payload)
                 
     return jsonify({"status": "success"}), 200
+    
+if __name__ == "__main__":
+    if not usuarios.find_one({"username": "admin"}):
+        hashed_admin = bcrypt.hashpw("admin123".encode('utf8'), bcrypt.gensalt())
+        usuarios.insert_one({"username": "admin", "password": hashed_admin.decode('utf8')})
+    # Host 0.0.0.0 es necesario para que Flask sea accesible desde fuera del contenedor Docker
+    app.run(host="0.0.0.0", port=5000, debug=True)

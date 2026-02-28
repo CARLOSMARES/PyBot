@@ -4,24 +4,24 @@ FROM python:3.11-slim
 # Establecer el directorio de trabajo dentro del contenedor
 WORKDIR /app
 
-# Instalar dependencias del sistema necesarias para compilar algunas librerías de Python
+# Instalar dependencias del sistema necesarias
 RUN apt-get update && apt-get install -y \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copiar el archivo de requisitos primero para aprovechar la caché de capas de Docker
+# Copiar el archivo de requisitos primero
 COPY requirements.txt .
 
 # Instalar las dependencias de Python
+# Al instalar requirements.txt, spaCy y el modelo en_core_web_sm se instalan juntos
 RUN pip install --no-cache-dir --upgrade pip wheel setuptools && \
     pip install --no-cache-dir -r requirements.txt
 
-# Forzar la versión de numpy para evitar incompatibilidades binarias (según tus scripts de entorno)
+# Forzar la versión de numpy para evitar incompatibilidades binarias
 RUN pip install --force-reinstall --upgrade numpy==1.24.3
 
-# El modelo en_core_web_sm ya debería estar en requirements.txt, 
-# pero nos aseguramos de que esté disponible para spaCy
-RUN python -m spacy download en_core_web_sm
+# SE ELIMINÓ LA LÍNEA DE "RUN python -m spacy download..." 
+# El modelo ya se instaló mediante la URL en requirements.txt
 
 # Copiar el resto del código de la aplicación
 COPY . .
@@ -32,7 +32,7 @@ RUN mkdir -p uploads
 # Exponer el puerto que utiliza Flask
 EXPOSE 5000
 
-# Definir variables de entorno (puedes sobrescribirlas al ejecutar el contenedor)
+# Definir variables de entorno
 ENV FLASK_APP=app.py
 ENV PYTHONUNBUFFERED=1
 
