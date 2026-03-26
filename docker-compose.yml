@@ -1,0 +1,40 @@
+version: "3.8"
+
+services:
+  # Servicio para la base de datos MongoDB
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb_chatbot
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+  # Servicio para la aplicación Flask (PyBot)
+  app:
+    build: .
+    container_name: pybot_app
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_APP=app.py
+      - PYTHONUNBUFFERED=1
+      - MONGO_URI=mongodb://mongodb:27017/
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # Meta (Facebook/Instagram)
+      - META_ACCESS_TOKEN=tu_token_de_pagina
+      - META_VERIFY_TOKEN=tu_palabra_secreta
+      # X (Twitter)
+      - X_CONSUMER_KEY=tu_key
+      - X_CONSUMER_SECRET=tu_secret
+      - X_ACCESS_TOKEN=tu_token
+      - X_ACCESS_TOKEN_SECRET=tu_token_secret
+      - TWITTER_BOT_ID=id_numérico_de_tu_bot
+    depends_on:
+      - mongodb
+    volumes:
+      - .:/app
+      - ./uploads:/app/uploads
+
+volumes:
+  mongodb_data:

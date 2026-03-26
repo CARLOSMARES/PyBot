@@ -1,57 +1,3 @@
-#####
-# Creación de un chatbot con Flask y MongoDB
-# Autor: Carlos Ignacio Olano Mares
-# Fecha: 04 de Marzo de 2025
-# Fecha Ultima Actualización: 15 de Marzo de 2025
-# Descripción: Código fuente de un chatbot que utiliza Flask y MongoDB para almacenar respuestas y preguntas.
-#              El chatbot puede responder preguntas previamente registradas y aprender nuevas respuestas.
-#              Se incluye un sistema de autenticación con tokens para proteger ciertos endpoints.
-#              El chatbot también guarda un historial de las conversaciones.
-#              Para ejecutar el chatbot, se debe instalar Flask, pymongo, spacy y bcrypt.
-#              Para instalar las dependencias, ejecutar el siguiente comando:
-#              pip install -r requirements.txt
-#              Para ejecutar el chatbot, ejecutar el siguiente comando:
-#              python app.py
-#              El chatbot estará disponible en http://
-#              Para interactuar con el chatbot, se pueden utilizar las siguientes rutas:
-#              - /chat: Para enviar una pregunta al chatbot.
-#              - /respuesta: Para registrar una nueva pregunta y respuesta en el chatbot.
-#              - /historial: Para obtener el historial de conversaciones del chatbot.
-#              - /login: Para autenticarse y obtener un token de acceso.
-#              - /register: Para registrar un nuevo usuario en el chatbot.
-#              El chatbot incluye un usuario administrador con las credenciales admin:admin123.
-#              Para autenticarse como administrador, se puede utilizar el siguiente comando:
-#              curl -X POST http://localhost:5000/login -H "Content-Type: application/json" -d '{"username": "admin", "password": "admin123"}'
-#              El token de acceso se puede utilizar para acceder a los endpoints protegidos.
-#              Para registrar un nuevo usuario, se puede utilizar el siguiente comando:
-#              curl -X POST http://localhost:5000/register -H "Content-Type: application/json" -d '{"username": "usuario", "password": "contraseña"}'
-#              El chatbot se puede utilizar para responder preguntas o aprender nuevas respuestas.
-#              Para enviar una pregunta al chatbot, se puede utilizar el siguiente comando:
-#              curl -X POST http://localhost:5000/chat -H "Content-Type: application/json" -d '{"prompt": "pregunta"}'
-#              Para registrar una nueva pregunta y respuesta en el chatbot, se puede utilizar el siguiente comando:
-#              curl -X POST http://localhost:5000/respuesta -H "Content-Type: application
-#              Para obtener el historial de conversaciones del chatbot, se puede utilizar el siguiente comando:
-#              curl -X GET http://localhost:5000/historial
-#              El chatbot responde a preguntas previamente registradas y aprende nuevas respuestas.
-#              Si no se encuentra una respuesta exacta, el chatbot sugiere preguntas similares.
-#              El chatbot también responde a saludos, despedidas, agradecimientos y solicitudes de ayuda.
-#              El chatbot utiliza un modelo de lenguaje de spaCy para analizar las intenciones del usuario.
-#              El chatbot utiliza una base de datos MongoDB para almacenar las preguntas y respuestas.
-#              El chatbot utiliza bcrypt para almacenar contraseñas de forma segura.
-#              El chatbot utiliza tokens de acceso para proteger ciertos endpoints.
-#              El chatbot utiliza CORS para permitir solicitudes desde cualquier origen.
-#              El chatbot utiliza decoradores de Python para proteger los endpoints.
-#              El chatbot utiliza funciones de Python para manejar las solicitudes HTTP.
-#              El chatbot utiliza funciones de Python para interactuar con la base de datos MongoDB.
-#              El chatbot utiliza funciones
-#              de Python para analizar las intenciones del usuario y generar respuestas.
-#              El chatbot utiliza funciones de Python para manejar la autenticación y el registro de usuarios.
-#              El chatbot utiliza funciones de Python para manejar el historial de conversaciones.
-#              El chatbot utiliza funciones de Python para manejar las sugerencias de preguntas similares.
-#              El chatbot utiliza funciones de Python para manejar las respuestas a saludos, despedidas, agradecimientos y solicitudes de ayuda.
-#              El chatbot utiliza funciones de Python para manejar las respuestas a preguntas previamente registradas y aprende nuevas respuestas.
-#####
-
 from flask import Flask, request, jsonify
 from pymongo import MongoClient
 from difflib import get_close_matches
@@ -60,17 +6,26 @@ import spacy
 from flask_cors import CORS
 from functools import wraps
 import bcrypt
-import base64  # nueva importación
+import base64
+import os  # Importación necesaria para variables de entorno
 from openai import OpenAI
 import fitz
-client = OpenAI()
+import requests
+from requests_oauthlib import OAuth1
+
+# Configuración mediante variables de entorno
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "sk-default-key")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
+
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 app = Flask(__name__)
 CORS(app)
 
 nlp = spacy.load("en_core_web_sm")
 
-cliente = MongoClient("mongodb://localhost:27017/")
+# Uso de la variable MONGO_URI configurada en docker-compose
+cliente = MongoClient(MONGO_URI)
 db = cliente["chatbot"]
 coleccion = db["respuestas"]
 historial = db["historial"]
@@ -83,29 +38,23 @@ def extract_text_from_pdf(pdf_path: str):
     return text
 
 def generate_qna(text, api_key):
-    openai.api_key = api_key
-    prompt =f"""
-    Apartir del siguiente texto, genera preguntas y respuestas útiles:
-    """
+    # Se utiliza la API Key pasada por el entorno
+    prompt = f"Apartir del siguiente texto, genera preguntas y respuestas útiles:"
 
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "system", "content": "Eres un asistente experto en generación de preguntas."},
-                  {"role": "user", "content": prompt + text[:2000]}],
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "Eres un asistente experto en generación de preguntas."},
+            {"role": "user", "content": prompt + text[:2000]}
+        ],
         max_tokens=500
     )
-
     return response.choices[0].message.content
 
 def obtener_respuesta_openai(prompt: str) -> str:
     completion = client.chat.completions.create(
         model="gpt-4o",
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
+        messages=[{"role": "user", "content": prompt}]
     )
     return completion.choices[0].message.content
 
@@ -139,22 +88,18 @@ def guardar_historial(prompt: str, respuesta: str):
     })
 
 def obtener_respuesta(prompt: str) -> str:
-    """Obtiene una respuesta de la base de datos."""
     resultado = coleccion.find_one({"pregunta": prompt.lower()})
     return resultado["respuesta"] if resultado else None
 
 def guardar_respuesta(prompt: str, respuesta: str):
-    """Guarda una nueva pregunta y respuesta en la base de datos."""
     coleccion.insert_one({"pregunta": prompt.lower(), "respuesta": respuesta})
 
 def sugerir_preguntas(prompt: str):
-    """Sugiere preguntas similares si no se encuentra una respuesta exacta."""
     preguntas_existentes = [doc["pregunta"] for doc in coleccion.find({}, {"pregunta": 1})]
     sugerencias = get_close_matches(prompt.lower(), preguntas_existentes, n=3, cutoff=0.6)
     return sugerencias
 
 def generar_respuesta(prompt: str) -> str:
-    """Genera una respuesta basada en preguntas previas o aprende nuevas respuestas."""
     intencion = analizar_intencion(prompt)
     respuesta_intencion = obtener_respuesta_intencion(intencion)
     if respuesta_intencion:
@@ -169,7 +114,6 @@ def generar_respuesta(prompt: str) -> str:
         sugerencias = sugerir_preguntas(prompt)
         if sugerencias:
             return f"No encontré una respuesta exacta. ¿Quisiste decir?: {', '.join(sugerencias)}"
-
         return "No sé la respuesta. Por favor, proporciona una respuesta."
 
 def token_required(f):
@@ -182,7 +126,7 @@ def token_required(f):
         try:
             decoded = base64.b64decode(token.encode('utf8')).decode('utf8')
             username, password = decoded.split(":", 1)
-        except Exception as e:
+        except Exception:
             return jsonify({"error": "Invalid token"}), 401
         user = usuarios.find_one({"username": username})
         if not user or not bcrypt.checkpw(password.encode('utf8'), user["password"].encode('utf8')):
@@ -200,7 +144,7 @@ def login():
     user = usuarios.find_one({"username": username})
     if not user or not bcrypt.checkpw(password.encode('utf8'), user["password"].encode('utf8')):
         return jsonify({"error": "Invalid credentials"}), 401
-    token = base64.b64encode(f"{username}:{password}".encode('utf8')).decode('utf8')  # generación del token
+    token = base64.b64encode(f"{username}:{password}".encode('utf8')).decode('utf8')
     return jsonify({"token": token})
 
 @app.route('/register', methods=['POST'])
@@ -223,7 +167,6 @@ def chat():
     prompt = data.get('prompt')
     if not prompt:
         return jsonify({"error": "No prompt provided"}), 400
-
     respuesta = generar_respuesta(prompt)
     return jsonify({"respuesta": respuesta})
 
@@ -235,62 +178,186 @@ def nueva_respuesta():
     respuesta = data.get('respuesta')
     if not prompt or not respuesta:
         return jsonify({"error": "Prompt and respuesta are required"}), 400
-
     guardar_respuesta(prompt, respuesta)
     return jsonify({"message": "Respuesta guardada correctamente"}), 201
 
 @app.route('/historial', methods=['GET'])
-@token_required  # nuevo decorador para proteger el endpoint
+@token_required
 def obtener_historial():
-    # Obtener historial de chat ordenado por fecha descendente
     entries = historial.find().sort("fecha", -1)
     result = []
     for entry in entries:
-        # Convertir los datos para hacerlos JSON serializables
         entry['_id'] = str(entry['_id'])
         entry['fecha'] = entry['fecha'].strftime("%Y-%m-%d %H:%M:%S")
         result.append(entry)
     return jsonify(result)
 
 @app.route('/chatopenai', methods=['POST'])
-@token_required  # nuevo decorador para proteger el endpoint
-def openai():
+@token_required
+def openai_endpoint():
     data = request.json
     prompt = data.get('prompt')
     if not prompt:
         return jsonify({"error": "No prompt provided"}), 400
-
     respuesta = obtener_respuesta_openai(prompt)
     return jsonify({"respuesta": respuesta})
 
 @app.route("/generate-qna", methods=["POST"])
 @token_required
 def generate_qna_api():
-    """API para recibir un archivo PDF y generar preguntas y respuestas."""
     if "file" not in request.files:
         return jsonify({"error": "No se ha proporcionado un archivo."}), 400
     
     file = request.files["file"]
-    pdf_path = f"./uploads/{file.filename}"
+    os.makedirs("./uploads", exist_ok=True)
+    pdf_path = os.path.join("./uploads", file.filename)
     file.save(pdf_path)
     
     text = extract_text_from_pdf(pdf_path)
-    api_key = "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"  # Sustituir con la clave real
-    qna = generate_qna(text, api_key)
+    qna = generate_qna(text, OPENAI_API_KEY)
     
     qna_collection.insert_one({"archivo": file.filename, "contenido": qna, "fecha": datetime.datetime.now()})
-    
     return jsonify({"preguntas_y_respuestas": qna})
 
 @app.route("/qna", methods=["GET"])
 @token_required
 def get_qna():
-    """API para obtener todas las preguntas generadas."""
     preguntas = list(qna_collection.find({}, {"_id": 0}))
     return jsonify({"preguntas_generadas": preguntas})
 
+# --- ENDPOINT PARA TELEGRAM ---
+@app.route('/webhook/telegram', methods=['POST'])
+def telegram_webhook():
+    data = request.json
+    if "message" in data:
+        chat_id = data["message"]["chat"]["id"]
+        text = data["message"].get("text", "")
+
+        # Usamos tu lógica existente para obtener respuesta de Mongo o OpenAI
+        respuesta = generar_respuesta(text)
+
+        # Enviar respuesta de vuelta a Telegram
+        token_telegram = os.getenv("TELEGRAM_TOKEN")
+        url = f"https://api.telegram.org/bot{token_telegram}/sendMessage"
+        payload = {"chat_id": chat_id, "text": respuesta}
+        requests.post(url, json=payload)
+        
+    return jsonify({"status": "ok"}), 200
+
+# --- ENDPOINT PARA WHATSAPP (Meta Cloud API) ---
+@app.route('/webhook/whatsapp', methods=['GET', 'POST'])
+def whatsapp_webhook():
+    # Verificación del Webhook (Solo se usa una vez al configurar en Meta)
+    if request.method == 'GET':
+        mode = request.args.get('hub.mode')
+        token = request.args.get('hub.verify_token')
+        challenge = request.args.get('hub.challenge')
+        if mode == 'subscribe' and token == os.getenv("WHATSAPP_VERIFY_TOKEN"):
+            return challenge, 200
+        return "Error de verificación", 403
+
+    # Recepción de mensajes
+    data = request.json
+    try:
+        if "messages" in data["entry"][0]["changes"][0]["value"]:
+            mensaje_recibido = data["entry"][0]["changes"][0]["value"]["messages"][0]
+            wa_id = mensaje_recibido["from"]
+            texto_usuario = mensaje_recibido["text"]["body"]
+
+            # Generar respuesta usando tu lógica de MongoDB
+            respuesta = generar_respuesta(texto_usuario)
+
+            # Enviar a WhatsApp
+            id_telefono = data["entry"][0]["changes"][0]["value"]["metadata"]["phone_number_id"]
+            token_wa = os.getenv("WHATSAPP_TOKEN")
+            url = f"https://graph.facebook.com/v17.0/{id_telefono}/messages"
+            headers = {"Authorization": f"Bearer {token_wa}"}
+            payload = {
+                "messaging_product": "whatsapp",
+                "to": wa_id,
+                "type": "text",
+                "text": {"body": respuesta}
+            }
+            requests.post(url, json=payload, headers=headers)
+    except Exception as e:
+        print(f"Error en WhatsApp Webhook: {e}")
+
+    return jsonify({"status": "ok"}), 200
+
+# --- ENDPOINT UNIFICADO PARA FACEBOOK E INSTAGRAM ---
+@app.route('/webhook/meta', methods=['GET', 'POST'])
+def meta_webhook():
+    # Validación del Webhook por Meta
+    if request.method == 'GET':
+        mode = request.args.get('hub.mode')
+        token = request.args.get('hub.verify_token')
+        challenge = request.args.get('hub.challenge')
+        if mode == 'subscribe' and token == os.getenv("META_VERIFY_TOKEN"):
+            return challenge, 200
+        return "Error de autenticación", 403
+
+    # Procesamiento de Mensajes
+    data = request.json
+    try:
+        for entry in data.get('entry', []):
+            for messaging_event in entry.get('messaging', []):
+                if messaging_event.get('message'):
+                    sender_id = messaging_event['sender']['id']
+                    user_text = messaging_event['message'].get('text')
+                    
+                    if user_text:
+                        # Usar tu lógica de MongoDB y OpenAI
+                        respuesta = generar_respuesta(user_text)
+                        
+                        token_meta = os.getenv("META_ACCESS_TOKEN")
+                        url = f"https://graph.facebook.com/v17.0/me/messages?access_token={token_meta}"
+                        payload = {
+                            "recipient": {"id": sender_id},
+                            "message": {"text": respuesta}
+                        }
+                        requests.post(url, json=payload)
+    except Exception as e:
+        print(f"Error en Meta Webhook: {e}")
+    return "EVENT_RECEIVED", 200
+
+# --- ENDPOINT PARA X (TWITTER) ---
+@app.route('/webhook/twitter', methods=['POST'])
+def twitter_webhook():
+    data = request.json
+    
+    # X utiliza el evento 'direct_message_events' para DMs
+    if "direct_message_events" in data:
+        for event in data["direct_message_events"]:
+            if event["type"] == "message_create":
+                sender_id = event["message_create"]["sender_id"]
+                
+                # Seguridad: No responder a los propios mensajes del bot
+                if sender_id == os.getenv("X_BOT_ID"):
+                    continue
+                
+                user_text = event["message_create"]["message_data"]["text"]
+                respuesta = generar_respuesta(user_text)
+
+                # Autenticación requerida por la API de X
+                auth = OAuth1(
+                    os.getenv("X_CONSUMER_KEY"),
+                    os.getenv("X_CONSUMER_SECRET"),
+                    os.getenv("X_ACCESS_TOKEN"),
+                    os.getenv("X_ACCESS_TOKEN_SECRET")
+                )
+                
+                url = "https://api.twitter.com/2/direct_messages"
+                payload = {
+                    "recipient_id": sender_id,
+                    "text": respuesta
+                }
+                requests.post(url, auth=auth, json=payload)
+                
+    return jsonify({"status": "success"}), 200
+    
 if __name__ == "__main__":
     if not usuarios.find_one({"username": "admin"}):
         hashed_admin = bcrypt.hashpw("admin123".encode('utf8'), bcrypt.gensalt())
         usuarios.insert_one({"username": "admin", "password": hashed_admin.decode('utf8')})
-    app.run(debug=True)
+    # Host 0.0.0.0 es necesario para que Flask sea accesible desde fuera del contenedor Docker
+    app.run(host="0.0.0.0", port=5000, debug=True)
