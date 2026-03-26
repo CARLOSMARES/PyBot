@@ -2,6 +2,7 @@ flask
 pymongo
 spacy
 flask-cors
+urllib3==2.5.0
 bcrypt
 openai
 pymupdf
